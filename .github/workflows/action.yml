@@ -1,0 +1,44 @@
+name: action
+
+on:
+  push:
+    branches:
+      - deploy
+
+jobs:
+  sync-to-gitlab:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          path: ai
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "이우경"
+          git config --global user.email "ukyoung147@gmail.com"
+
+      - name: Install rsync
+        run: sudo apt-get install rsync
+
+      - name: Configure merge strategy for pull
+        run: git config --global pull.rebase false
+
+      - name: Sync to Gitlab
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          git clone --branch ai https://oauth2:$GITLAB_TOKEN@lab.ssafy.com/s10-bigdata-recom-sub2/S10P22D204.git S10P22D204
+          mkdir -p S10P22D204/ai
+          rsync -av --delete --exclude='.git/' --exclude='.github/' ./ai/ S10P22D204/ai/
+          cd S10P22D204
+          git add ai/
+          git_status=$(git status --porcelain)
+          if [ ! -z "$git_status" ]; then
+            git commit -m "ai server develop update"
+            git push origin ai --force
+          else
+            echo "No changes to commit."
+          fi
